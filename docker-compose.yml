@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  # [로컬 개발] 아래 app 부분은 주석 처리
+  # [서버 배포] 주석 풀고 실행
+#  app:
+#    build:
+#      context: .
+#      dockerfile: Dockerfile
+#    container_name: kathena-backend
+#    ports:
+#      - "8080:8080"
+#    environment:
+#      SPRING_PROFILES_ACTIVE: prod
+#      DB_PASSWORD: ${DB_PASSWORD}
+#    depends_on:
+#      db:
+#        condition: service_healthy
+#      keystore:
+#        condition: service_started
+#    networks:
+#      - kathena-net
+
+  db:
+    image: mysql:8.0
+    container_name: kathena-db
+    ports:
+      - "3306:3306"
+    env_file:
+      - .env
+    environment:
+      MYSQL_DATABASE: kathena
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      TZ: Asia/Seoul
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - ./db_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - kathena-net
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p${DB_PASSWORD} || exit 1"]
+      interval: 5s
+      retries: 10
+
+  keystore:
+    image: valkey/valkey:8.0
+    container_name: kathena-keystore
+    ports:
+      - "6379:6379"
+    networks:
+      - kathena-net
+
+networks:
+  kathena-net:
+    driver: bridge
