@@ -25,7 +25,7 @@ services:
     image: mysql:8.0
     container_name: kathena-db
     ports:
-      - "3306:3306"
+      - "3307:3306"
     env_file:
       - .env
     environment:
