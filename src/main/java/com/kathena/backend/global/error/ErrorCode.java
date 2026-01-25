@@ -21,7 +21,9 @@ public enum ErrorCode {
     // Auth
     INVALID_PASSWORD(HttpStatus.UNAUTHORIZED, "A001", "비밀번호가 일치하지 않습니다."),
     ACCOUNT_PENDING(HttpStatus.FORBIDDEN, "A002", "관리자 승인을 대기 중인 계정입니다."),
-    ACCOUNT_INACTIVE(HttpStatus.FORBIDDEN, "A003", "이용이 제한된 계정입니다."); // REJECTED, SUSPENDED 통합
+    ACCOUNT_INACTIVE(HttpStatus.FORBIDDEN, "A003", "이용이 제한된 계정입니다."), // REJECTED, SUSPENDED 통합
+    INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "A004", "유효하지 않은 토큰입니다."),
+    INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "A005", "유효하지 않은 리프레시 토큰입니다.");
 
     private final HttpStatus status;
     private final String code;
