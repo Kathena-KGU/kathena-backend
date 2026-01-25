@@ -39,3 +39,6 @@ out/
 ### private ###
 .env
 db_data/
+
+### Gemini CLI ###
+gemini.md
