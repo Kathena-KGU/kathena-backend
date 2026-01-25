@@ -99,4 +99,41 @@ public class MemberService {
         return tokenDto;
     }
 
+    /**
+     * 토큰 재발급
+     */
+    @Transactional
+    public TokenDto reissue(String refreshToken) {
+        // 1. Refresh Token 검증
+        if (!jwtTokenProvider.validateToken(refreshToken)) {
+            throw new CustomException(ErrorCode.INVALID_REFRESH_TOKEN);
+        }
+
+        // 2. 토큰에서 유저 정보 가져오기
+        Authentication authentication = jwtTokenProvider.getAuthentication(refreshToken);
+
+        // 3. Redis에서 저장된 Refresh Token 가져오기
+        String redisKey = "RT:" + authentication.getName();
+        String redisRefreshToken = redisTemplate.opsForValue().get(redisKey);
+
+        // 4. Redis에 토큰이 없거나, 일치하지 않는 경우 에러 처리 (로그아웃됨)
+        if (redisRefreshToken == null || !redisRefreshToken.equals(refreshToken)) {
+            redisTemplate.delete(redisKey); // 서버에 저장된 토큰이 있다면 지움
+            throw new CustomException(ErrorCode.INVALID_REFRESH_TOKEN); // 여기서 예외를 던지면 -> Controller가 쿠키 삭제
+        }
+
+        // 5. 새 토큰 생성
+        TokenDto tokenDto = jwtTokenProvider.generateTokenDto(authentication);
+
+        // 6. 새 Refresh Token 저장
+        redisTemplate.opsForValue().set(
+                "RT:" + authentication.getName(),
+                tokenDto.getRefreshToken(),
+                tokenDto.getRefreshTokenExpiresIn(),
+                TimeUnit.MILLISECONDS
+        );
+
+        return tokenDto;
+    }
+
 }

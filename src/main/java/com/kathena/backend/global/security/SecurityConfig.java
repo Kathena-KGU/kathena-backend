@@ -34,7 +34,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 // 요청 권한 설정
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/members/signup", "/api/members/login").permitAll() // 로그인/회원가입 허용
+                        .requestMatchers("/api/members/signup", "/api/members/login", "/api/members/reissue").permitAll() // 로그인/회원가입/토큰 재발급 허용
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()         // 스웨거
                         .anyRequest().authenticated()
                 )
