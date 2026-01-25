@@ -1,4 +1,4 @@
-package com.kathena.backend.global.config;
+package com.kathena.backend.global.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
