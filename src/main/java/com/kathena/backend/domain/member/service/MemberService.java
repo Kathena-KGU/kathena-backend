@@ -1,15 +1,26 @@
 package com.kathena.backend.domain.member.service;
 
+import com.kathena.backend.domain.member.dto.LoginRequest;
 import com.kathena.backend.domain.member.dto.MemberResponse;
 import com.kathena.backend.domain.member.dto.SignUpRequest;
+import com.kathena.backend.domain.member.dto.TokenDto;
 import com.kathena.backend.domain.member.entity.Member;
+import com.kathena.backend.domain.member.entity.UserStatus;
 import com.kathena.backend.domain.member.repository.MemberRepository;
 import com.kathena.backend.global.error.CustomException;
 import com.kathena.backend.global.error.ErrorCode;
+import com.kathena.backend.global.security.jwt.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Collections;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
@@ -18,7 +29,12 @@ public class MemberService {
 
     private final MemberRepository memberRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtTokenProvider jwtTokenProvider;
+    private final RedisTemplate<String, String> redisTemplate;
 
+    /**
+     * 회원가입
+     */
     @Transactional
     public MemberResponse signUp(SignUpRequest request) {
         // 중복 검사
@@ -35,9 +51,52 @@ public class MemberService {
         // 비밀번호 암호화 및 저장
         String encodedPassword = passwordEncoder.encode(request.getPassword());
         Member member = request.toEntity(encodedPassword);
-        
+
         Member savedMember = memberRepository.save(member);
 
         return MemberResponse.from(savedMember);
     }
+    /**
+     * 로그인
+     */
+    @Transactional
+    public TokenDto login(LoginRequest request) {
+        // 1. ID 존재 여부 확인
+        Member member = memberRepository.findByLoginId(request.getLoginId())
+                .orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
+
+        // 2. 비밀번호 일치 여부 확인
+        if (!passwordEncoder.matches(request.getPassword(), member.getPassword())) {
+            throw new CustomException(ErrorCode.INVALID_PASSWORD);
+        }
+
+        // 3. 계정 상태 확인
+        if (member.getStatus() == UserStatus.PENDING) {
+            throw new CustomException(ErrorCode.ACCOUNT_PENDING);
+        }
+        if (member.getStatus() == UserStatus.REJECTED || member.getStatus() == UserStatus.SUSPENDED) {
+            throw new CustomException(ErrorCode.ACCOUNT_INACTIVE);
+        }
+
+        // 4. 인증 객체 생성 (직접 생성)
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+                member.getLoginId(),
+                null,
+                Collections.singleton(new SimpleGrantedAuthority("ROLE_" + member.getRole().name()))
+        );
+
+        // 5. 토큰 발급
+        TokenDto tokenDto = jwtTokenProvider.generateTokenDto(authentication);
+
+        // 6. Refresh Token Redis에 저장
+        redisTemplate.opsForValue().set(
+                "RT:" + member.getLoginId(),
+                tokenDto.getRefreshToken(),
+                tokenDto.getRefreshTokenExpiresIn(), // 7일
+                TimeUnit.MILLISECONDS
+        );
+
+        return tokenDto;
+    }
+
 }

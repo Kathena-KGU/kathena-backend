@@ -16,7 +16,12 @@ public enum ErrorCode {
     MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "M001", "회원을 찾을 수 없습니다."),
     DUPLICATE_LOGIN_ID(HttpStatus.CONFLICT, "M002", "이미 존재하는 아이디입니다."),
     DUPLICATE_NICKNAME(HttpStatus.CONFLICT, "M003", "이미 존재하는 닉네임입니다."),
-    DUPLICATE_STUDENT_ID(HttpStatus.CONFLICT, "M004", "이미 가입된 학번입니다.");
+    DUPLICATE_STUDENT_ID(HttpStatus.CONFLICT, "M004", "이미 가입된 학번입니다."),
+
+    // Auth
+    INVALID_PASSWORD(HttpStatus.UNAUTHORIZED, "A001", "비밀번호가 일치하지 않습니다."),
+    ACCOUNT_PENDING(HttpStatus.FORBIDDEN, "A002", "관리자 승인을 대기 중인 계정입니다."),
+    ACCOUNT_INACTIVE(HttpStatus.FORBIDDEN, "A003", "이용이 제한된 계정입니다."); // REJECTED, SUSPENDED 통합
 
     private final HttpStatus status;
     private final String code;
