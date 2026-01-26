@@ -34,19 +34,17 @@ public class MemberController {
     @PostMapping("/signup")
     public ApiResponse<MemberResponse> signUp(@Valid @RequestBody SignUpRequest request) {
         MemberResponse response = memberService.signUp(request);
-        return ApiResponse.success("회원가입 신청이 완료되었습니다.", response);
+        return ApiResponse.onSuccess("COMMON200", "회원가입 신청이 완료되었습니다.", response);
     }
 
     //로그인
-    // 로그인
     @PostMapping("/login")
     public ApiResponse<TokenDto> login(@Valid @RequestBody LoginRequest request, HttpServletResponse response) {
         TokenDto tokenDto = memberService.login(request);
 
-        // ★ 쿠키 설정 통합 메서드 사용
         setRefreshCookie(response, tokenDto.getRefreshToken(), 7 * 24 * 60 * 60);
 
-        return ApiResponse.success("로그인에 성공했습니다.", convertToAccessOnlyDto(tokenDto));
+        return ApiResponse.onSuccess("COMMON200", "로그인에 성공했습니다.", convertToAccessOnlyDto(tokenDto));
     }
 
     //토큰 재발급
@@ -54,51 +52,46 @@ public class MemberController {
     public ApiResponse<TokenDto> reissue(@CookieValue(name = "refresh_token", required = false) String refreshToken,
                                          HttpServletResponse response) {
         if (refreshToken == null) {
-            expireCookie(response); // ★ 여기도 설정 적용된 삭제 쿠키 사용
+            expireCookie(response);
             throw new CustomException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
 
         try {
             TokenDto tokenDto = memberService.reissue(refreshToken);
-            setRefreshCookie(response, tokenDto.getRefreshToken(), 7 * 24 * 60 * 60); // ★
+            setRefreshCookie(response, tokenDto.getRefreshToken(), 7 * 24 * 60 * 60);
 
-            return ApiResponse.success("토큰 재발급이 완료되었습니다.", convertToAccessOnlyDto(tokenDto));
-        } catch (CustomException e) {
-            expireCookie(response); // ★
+            return ApiResponse.onSuccess("COMMON200", "토큰 재발급이 완료되었습니다.", convertToAccessOnlyDto(tokenDto));        } catch (CustomException e) {
+            expireCookie(response);
             throw e;
         }
     }
 
-    // 로그아웃 (신규 추가)
+    // 로그아웃
     @PostMapping("/logout")
     public ApiResponse<Void> logout(Authentication authentication, HttpServletResponse response) {
         if (authentication != null && authentication.getName() != null) {
             memberService.logout(authentication.getName());
         }
-        expireCookie(response); // ★
-        return ApiResponse.success("로그아웃 되었습니다.", null);
-    }
+        expireCookie(response);
+        return ApiResponse.onSuccess("COMMON200", "로그아웃 되었습니다.", null);    }
 
-    // --- Helper Methods (중복 제거 & 설정 통일) ---
-
-    // 1. 쿠키 생성/설정 공통화
+    // 쿠키 생성/설정
     private void setRefreshCookie(HttpServletResponse response, String token, long maxAge) {
         ResponseCookie cookie = ResponseCookie.from("refresh_token", token)
                 .httpOnly(true)
-                .secure(cookieSecure)      // application.yml 설정
+                .secure(cookieSecure)
                 .path("/api/members")
                 .maxAge(maxAge)
-                .sameSite(cookieSameSite)  // application.yml 설정
+                .sameSite(cookieSameSite)
                 .build();
         response.addHeader("Set-Cookie", cookie.toString());
     }
 
-    // 2. 쿠키 삭제 공통화
+    // 쿠키 삭제
     private void expireCookie(HttpServletResponse response) {
         setRefreshCookie(response, "", 0); // 내용 비우고 수명 0
     }
 
-    // 3. DTO 변환 (Body에서 RefreshToken 제거)
     private TokenDto convertToAccessOnlyDto(TokenDto original) {
         return TokenDto.builder()
                 .grantType(original.getGrantType())
