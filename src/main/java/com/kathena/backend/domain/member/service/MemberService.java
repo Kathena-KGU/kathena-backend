@@ -136,4 +136,13 @@ public class MemberService {
         return tokenDto;
     }
 
+    // 로그아웃
+    @Transactional
+    public void logout(String loginId) {
+        String redisKey = "RT:" + loginId;
+        if (redisTemplate.opsForValue().get(redisKey) != null) {
+            redisTemplate.delete(redisKey);
+        }
+    }
+
 }
