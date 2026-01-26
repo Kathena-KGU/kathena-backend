@@ -1,0 +1,3 @@
+jwt:
+  cookie-secure: true    # https
+  cookie-same-site: None # 크로스 도메인 허용

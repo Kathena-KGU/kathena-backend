@@ -1,6 +1,8 @@
 spring:
   application:
     name: kathena-backend
+  profiles:
+    active: dev # application-dev.yml
 
   datasource:
     url: ${DB_URL}
@@ -16,17 +18,16 @@ spring:
         format_sql: true
     show-sql: true
 
-# Redis 설정
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
 
-# JWT 설정
+# JWT 공통 설정 (Secret Key)
 jwt:
   secret: ${JWT_SECRET}
 
-#로깅
-  logging:
-    pattern:
-      console: "%d{HH:mm:ss.SSS} [%thread] [%X{traceId:-NO_TRACE_ID}] %-5level %logger{36} - %msg%n"
+# 로깅
+logging:
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] [%X{traceId:-NO_TRACE_ID}] %-5level %logger{36} - %msg%n"

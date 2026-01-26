@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -104,36 +105,60 @@ public class MemberService {
      */
     @Transactional
     public TokenDto reissue(String refreshToken) {
-        // 1. Refresh Token 검증
-        if (!jwtTokenProvider.validateToken(refreshToken)) {
+        // 토큰 검증
+        if (!jwtTokenProvider.validateRefreshToken(refreshToken)) {
             throw new CustomException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
 
-        // 2. 토큰에서 유저 정보 가져오기
-        Authentication authentication = jwtTokenProvider.getAuthentication(refreshToken);
-
-        // 3. Redis에서 저장된 Refresh Token 가져오기
-        String redisKey = "RT:" + authentication.getName();
-        String redisRefreshToken = redisTemplate.opsForValue().get(redisKey);
-
-        // 4. Redis에 토큰이 없거나, 일치하지 않는 경우 에러 처리 (로그아웃됨)
-        if (redisRefreshToken == null || !redisRefreshToken.equals(refreshToken)) {
-            redisTemplate.delete(redisKey); // 서버에 저장된 토큰이 있다면 지움
-            throw new CustomException(ErrorCode.INVALID_REFRESH_TOKEN); // 여기서 예외를 던지면 -> Controller가 쿠키 삭제
+        // 토큰에서 ID 추출
+        String loginId = jwtTokenProvider.getSubject(refreshToken);
+        if (loginId == null) {
+            throw new CustomException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
 
-        // 5. 새 토큰 생성
-        TokenDto tokenDto = jwtTokenProvider.generateTokenDto(authentication);
+        // DB 조회
+        Member member = memberRepository.findByLoginId(loginId)
+                .orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
 
-        // 6. 새 Refresh Token 저장
+        // 상태값 검증
+        if (member.getStatus() == UserStatus.REJECTED ||
+                member.getStatus() == UserStatus.SUSPENDED ||
+                member.getStatus() == UserStatus.PENDING) {
+            throw new CustomException(ErrorCode.ACCOUNT_INACTIVE);
+        }
+
+        // Redis 토큰 확인
+        String redisKey = "RT:" + loginId;
+        String redisRefreshToken = redisTemplate.opsForValue().get(redisKey);
+        if (redisRefreshToken == null || !redisRefreshToken.equals(refreshToken)) {
+            redisTemplate.delete(redisKey);
+            throw new CustomException(ErrorCode.INVALID_REFRESH_TOKEN);
+        }
+
+        // 최신 Member 정보로 새로운 Authentication 생성
+        GrantedAuthority authority = new SimpleGrantedAuthority("ROLE_" + member.getRole().name());
+        Authentication newAuth = new UsernamePasswordAuthenticationToken(loginId, null, Collections.singleton(authority));
+
+        // 새 토큰 발급
+        TokenDto tokenDto = jwtTokenProvider.generateTokenDto(newAuth);
+
         redisTemplate.opsForValue().set(
-                "RT:" + authentication.getName(),
+                redisKey,
                 tokenDto.getRefreshToken(),
                 tokenDto.getRefreshTokenExpiresIn(),
                 TimeUnit.MILLISECONDS
         );
 
         return tokenDto;
+    }
+
+    // 로그아웃
+    @Transactional
+    public void logout(String loginId) {
+        String redisKey = "RT:" + loginId;
+        if (redisTemplate.opsForValue().get(redisKey) != null) {
+            redisTemplate.delete(redisKey);
+        }
     }
 
 }
