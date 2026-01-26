@@ -14,6 +14,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.authentication.logout.LogoutFilter;
 
 @Configuration
 @EnableWebSecurity
@@ -41,9 +42,9 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
 
-                // JwtFilter -> UsernamePasswordFilter -> TraceIdFilter 순서
-                .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider), UsernamePasswordAuthenticationFilter.class)
-                .addFilterBefore(traceIdFilter, JwtAuthenticationFilter.class);
+               // TraceIdFilter -> JwtAuthenticationFilter -> UsernamePasswordAuthenticationFilter
+                .addFilterBefore(traceIdFilter, LogoutFilter.class)
+                .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
