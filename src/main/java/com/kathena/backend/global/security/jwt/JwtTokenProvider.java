@@ -29,43 +29,41 @@ public class JwtTokenProvider {
     private static final long ACCESS_TOKEN_EXPIRE_TIME = 1000 * 60 * 30;            // 30분
     private static final long REFRESH_TOKEN_EXPIRE_TIME = 1000 * 60 * 60 * 24 * 7;  // 7일
 
-    // 토큰 타입
+    // ★ 토큰 타입 구분용 키
     private static final String TYPE_CLAIM = "token_type";
     private static final String TYPE_ACCESS = "ACCESS";
     private static final String TYPE_REFRESH = "REFRESH";
 
     private final Key key;
 
-    // 키 생성.
     public JwtTokenProvider(@Value("${jwt.secret}") String secretKey) {
         byte[] keyBytes = Decoders.BASE64.decode(secretKey);
         this.key = Keys.hmacShaKeyFor(keyBytes);
     }
 
-    // 토큰 생성 (로그인 성공 시 호출)
+    // 토큰 생성
     public TokenDto generateTokenDto(Authentication authentication) {
-        // 권한 가져오기 (예: ROLE_USER, ROLE_ADMIN)
         String authorities = authentication.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.joining(","));
 
         long now = (new Date()).getTime();
 
-        // Access Token 생성
+        // Access Token 생성 (TYPE_ACCESS 포함)
         Date accessTokenExpiresIn = new Date(now + ACCESS_TOKEN_EXPIRE_TIME);
         String accessToken = Jwts.builder()
-                .setSubject(authentication.getName())       // Payload "sub": "유저ID"
-                .claim(AUTHORITIES_KEY, authorities)        // Payload "auth": "ROLE_USER"
-                .claim(TYPE_CLAIM, TYPE_ACCESS)             // 타입
-                .setExpiration(accessTokenExpiresIn)        // Payload "exp": 170...
-                .signWith(key, SignatureAlgorithm.HS512)    // Header "alg": "HS512"
+                .setSubject(authentication.getName())
+                .claim(AUTHORITIES_KEY, authorities)
+                .claim(TYPE_CLAIM, TYPE_ACCESS) // ★ 타입 명시
+                .setExpiration(accessTokenExpiresIn)
+                .signWith(key, SignatureAlgorithm.HS512)
                 .compact();
 
-        // Refresh Token 생성
+        // Refresh Token 생성 (TYPE_REFRESH 포함)
         String refreshToken = Jwts.builder()
-                .setSubject(authentication.getName()) //유저 id
-                .claim(AUTHORITIES_KEY, authorities) // role
-                .claim(TYPE_CLAIM, TYPE_REFRESH)     // 타입
+                .setSubject(authentication.getName())
+                .claim(AUTHORITIES_KEY, authorities)
+                .claim(TYPE_CLAIM, TYPE_REFRESH) // ★ 타입 명시
                 .setExpiration(new Date(now + REFRESH_TOKEN_EXPIRE_TIME))
                 .signWith(key, SignatureAlgorithm.HS512)
                 .compact();
@@ -79,22 +77,19 @@ public class JwtTokenProvider {
                 .build();
     }
 
-    // 토큰에서 인증 정보 조회
+    // 인증 정보 조회
     public Authentication getAuthentication(String accessToken) {
-        // 토큰 복호화
         Claims claims = parseClaims(accessToken);
 
         if (claims.get(AUTHORITIES_KEY) == null) {
             throw new RuntimeException("권한 정보가 없는 토큰입니다.");
         }
 
-        // 클레임에서 권한 정보 가져오기
         Collection<? extends GrantedAuthority> authorities =
                 Arrays.stream(claims.get(AUTHORITIES_KEY).toString().split(","))
                         .map(SimpleGrantedAuthority::new)
                         .collect(Collectors.toList());
 
-        // UserDetails 객체를 만들어서 Authentication 리턴
         UserDetails principal = new User(claims.getSubject(), "", authorities);
         return new UsernamePasswordAuthenticationToken(principal, "", authorities);
     }
@@ -116,16 +111,17 @@ public class JwtTokenProvider {
         return false;
     }
 
-    // Access Token인지 확인
+    // ★ Access Token 여부 확인
     public boolean isAccessToken(String token) {
         return checkTokenType(token, TYPE_ACCESS);
     }
 
-    // Refresh Token인지 확인
+    // ★ Refresh Token 여부 확인
     public boolean isRefreshToken(String token) {
         return checkTokenType(token, TYPE_REFRESH);
     }
 
+    // ★ 토큰 타입 체크 내부 로직
     private boolean checkTokenType(String token, String expectedType) {
         try {
             Claims claims = parseClaims(token);
@@ -136,15 +132,7 @@ public class JwtTokenProvider {
         }
     }
 
-    private Claims parseClaims(String accessToken) {
-        try {
-            return Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(accessToken).getBody();
-        } catch (ExpiredJwtException e) {
-            return e.getClaims();
-        }
-    }
-
-    //토큰에서 Subject(User ID)만 추출
+    // ★ Reissue용 Subject(ID) 추출
     public String getSubject(String token) {
         try {
             return Jwts.parserBuilder()
@@ -158,16 +146,21 @@ public class JwtTokenProvider {
         }
     }
 
-    // 토큰 유효성 Refresh Token 타입 확인
+    // ★ Refresh Token 유효성 + 타입 검증 통합
     public boolean validateRefreshToken(String token) {
         try {
-            //파싱
             Jws<Claims> claims = Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token);
-
-            //타입 확인
             return TYPE_REFRESH.equals(claims.getBody().get(TYPE_CLAIM));
         } catch (Exception e) {
             return false;
+        }
+    }
+
+    private Claims parseClaims(String accessToken) {
+        try {
+            return Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(accessToken).getBody();
+        } catch (ExpiredJwtException e) {
+            return e.getClaims();
         }
     }
 }

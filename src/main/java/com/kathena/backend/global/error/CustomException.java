@@ -1,14 +1,15 @@
 package com.kathena.backend.global.error;
 
+import com.kathena.backend.global.common.code.BaseErrorCode;
 import lombok.Getter;
 
 @Getter
 public class CustomException extends RuntimeException {
 
-    private final ErrorCode errorCode;
+    private final BaseErrorCode code;
 
-    public CustomException(ErrorCode errorCode) {
-        super(errorCode.getMessage());
-        this.errorCode = errorCode;
+    public CustomException(BaseErrorCode code) {
+        super(code.getReason().getMessage());
+        this.code = code;
     }
 }
