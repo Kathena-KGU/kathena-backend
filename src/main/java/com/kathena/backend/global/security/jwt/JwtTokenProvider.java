@@ -29,6 +29,11 @@ public class JwtTokenProvider {
     private static final long ACCESS_TOKEN_EXPIRE_TIME = 1000 * 60 * 30;            // 30분
     private static final long REFRESH_TOKEN_EXPIRE_TIME = 1000 * 60 * 60 * 24 * 7;  // 7일
 
+    // 토큰 타입
+    private static final String TYPE_CLAIM = "token_type";
+    private static final String TYPE_ACCESS = "ACCESS";
+    private static final String TYPE_REFRESH = "REFRESH";
+
     private final Key key;
 
     // 키 생성.
@@ -51,6 +56,7 @@ public class JwtTokenProvider {
         String accessToken = Jwts.builder()
                 .setSubject(authentication.getName())       // Payload "sub": "유저ID"
                 .claim(AUTHORITIES_KEY, authorities)        // Payload "auth": "ROLE_USER"
+                .claim(TYPE_CLAIM, TYPE_ACCESS)             // 타입
                 .setExpiration(accessTokenExpiresIn)        // Payload "exp": 170...
                 .signWith(key, SignatureAlgorithm.HS512)    // Header "alg": "HS512"
                 .compact();
@@ -59,6 +65,7 @@ public class JwtTokenProvider {
         String refreshToken = Jwts.builder()
                 .setSubject(authentication.getName()) //유저 id
                 .claim(AUTHORITIES_KEY, authorities) // role
+                .claim(TYPE_CLAIM, TYPE_REFRESH)     // 타입
                 .setExpiration(new Date(now + REFRESH_TOKEN_EXPIRE_TIME))
                 .signWith(key, SignatureAlgorithm.HS512)
                 .compact();
@@ -107,6 +114,26 @@ public class JwtTokenProvider {
             log.info("JWT 토큰이 잘못되었습니다.");
         }
         return false;
+    }
+
+    // Access Token인지 확인
+    public boolean isAccessToken(String token) {
+        return checkTokenType(token, TYPE_ACCESS);
+    }
+
+    // Refresh Token인지 확인
+    public boolean isRefreshToken(String token) {
+        return checkTokenType(token, TYPE_REFRESH);
+    }
+
+    private boolean checkTokenType(String token, String expectedType) {
+        try {
+            Claims claims = parseClaims(token);
+            String type = (String) claims.get(TYPE_CLAIM);
+            return expectedType.equals(type);
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private Claims parseClaims(String accessToken) {

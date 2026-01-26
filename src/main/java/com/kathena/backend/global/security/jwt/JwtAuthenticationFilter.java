@@ -5,6 +5,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.StringUtils;
@@ -12,6 +13,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
+@Slf4j
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
@@ -23,15 +25,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     // 필터링 로직
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-
-        // Request Header 에서 토큰 꺼냄
         String token = resolveToken(request);
 
-        // 2. validateToken 으로 토큰 유효성 검사
-        // 정상 토큰이면 Authentication을 가져와서 SecurityContext에 저장
+        // validateToken 통과, ACCESS 토큰인지 확인
         if (StringUtils.hasText(token) && jwtTokenProvider.validateToken(token)) {
-            Authentication authentication = jwtTokenProvider.getAuthentication(token);
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+            if (jwtTokenProvider.isAccessToken(token)) {
+                Authentication authentication = jwtTokenProvider.getAuthentication(token);
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+            } else {
+                log.warn("Refresh Token으로 접근을 시도했습니다. IP: {}", request.getRemoteAddr());
+            }
         }
 
         filterChain.doFilter(request, response);
