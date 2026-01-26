@@ -3,6 +3,7 @@ package com.kathena.backend.global.common;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import org.slf4j.MDC;
 
 @Getter
 @AllArgsConstructor
@@ -12,16 +13,17 @@ public class ApiResponse<T> {
     private final String status;
     private final String message;
     private final T data;
+    private final String traceId;
 
     public static <T> ApiResponse<T> success(T data) {
-        return new ApiResponse<>("SUCCESS", "요청이 성공적으로 처리되었습니다.", data);
+        return new ApiResponse<>("SUCCESS", "요청이 성공적으로 처리되었습니다.", data, MDC.get("traceId"));
     }
 
     public static <T> ApiResponse<T> success(String message, T data) {
-        return new ApiResponse<>("SUCCESS", message, data);
+        return new ApiResponse<>("SUCCESS", message, data, MDC.get("traceId"));
     }
 
     public static ApiResponse<Void> error(String message) {
-        return new ApiResponse<>("ERROR", message, null);
+        return new ApiResponse<>("ERROR", message, null, MDC.get("traceId"));
     }
 }

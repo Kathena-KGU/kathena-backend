@@ -1,5 +1,6 @@
-package com.kathena.backend.global.security; // 패키지명 변경됨!
+package com.kathena.backend.global.security;
 
+import com.kathena.backend.global.common.TraceIdFilter;
 import com.kathena.backend.global.security.jwt.JwtAuthenticationFilter;
 import com.kathena.backend.global.security.jwt.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +14,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.authentication.logout.LogoutFilter;
 
 @Configuration
 @EnableWebSecurity
@@ -20,6 +22,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final TraceIdFilter traceIdFilter;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -39,7 +42,8 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
 
-                // JWT 필터를 ID/PW 인증 필터보다 먼저 실행
+               // TraceIdFilter -> JwtAuthenticationFilter -> UsernamePasswordAuthenticationFilter
+                .addFilterBefore(traceIdFilter, LogoutFilter.class)
                 .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

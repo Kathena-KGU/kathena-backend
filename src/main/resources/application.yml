@@ -25,3 +25,8 @@ spring:
 # JWT 설정
 jwt:
   secret: ${JWT_SECRET}
+
+#로깅
+  logging:
+    pattern:
+      console: "%d{HH:mm:ss.SSS} [%thread] [%X{traceId:-NO_TRACE_ID}] %-5level %logger{36} - %msg%n"
