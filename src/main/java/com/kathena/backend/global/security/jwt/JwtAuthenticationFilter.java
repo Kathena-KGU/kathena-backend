@@ -1,5 +1,7 @@
 package com.kathena.backend.global.security.jwt;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kathena.backend.global.common.ApiResponse;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -27,13 +29,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         String token = resolveToken(request);
 
-        // validateToken 통과, ACCESS 토큰인지 확인
+        // 토큰 유효성 검사
         if (StringUtils.hasText(token) && jwtTokenProvider.validateToken(token)) {
+            //토큰 타입 확인
             if (jwtTokenProvider.isAccessToken(token)) {
                 Authentication authentication = jwtTokenProvider.getAuthentication(token);
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             } else {
-                log.warn("Refresh Token으로 접근을 시도했습니다. IP: {}", request.getRemoteAddr());
+                // Refresh Token으로 접근 시 즉시 401 에러 반환
+                log.warn("Refresh Token으로 리소스 접근을 시도했습니다. IP: {}", request.getRemoteAddr());
+                sendErrorResponse(response, "Refresh Token으로는 접근할 수 없습니다.");
+                return; // 필터 체인 중단
             }
         }
 
@@ -47,5 +53,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return bearerToken.substring(7);
         }
         return null;
+    }
+
+    // 필터에서 직접 JSON 응답을 내려주기 위한 메서드
+    private void sendErrorResponse(HttpServletResponse response, String message) throws IOException {
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED); // 401
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+
+        // ApiResponse 객체를 JSON으로 변환
+        String jsonResponse = new ObjectMapper().writeValueAsString(
+                ApiResponse.error(message)
+        );
+
+        response.getWriter().write(jsonResponse);
     }
 }

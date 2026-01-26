@@ -143,4 +143,31 @@ public class JwtTokenProvider {
             return e.getClaims();
         }
     }
+
+    //토큰에서 Subject(User ID)만 추출
+    public String getSubject(String token) {
+        try {
+            return Jwts.parserBuilder()
+                    .setSigningKey(key)
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody()
+                    .getSubject();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    // 토큰 유효성 Refresh Token 타입 확인
+    public boolean validateRefreshToken(String token) {
+        try {
+            //파싱
+            Jws<Claims> claims = Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token);
+
+            //타입 확인
+            return TYPE_REFRESH.equals(claims.getBody().get(TYPE_CLAIM));
+        } catch (Exception e) {
+            return false;
+        }
+    }
 }

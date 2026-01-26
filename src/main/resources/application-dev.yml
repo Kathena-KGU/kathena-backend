@@ -1,0 +1,3 @@
+jwt:
+  cookie-secure: false   # http
+  cookie-same-site: Lax  # 로컬 개발
